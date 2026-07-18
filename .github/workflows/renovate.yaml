@@ -55,14 +55,6 @@ jobs:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          permission-checks: write
-          permission-contents: write
-          permission-issues: write
-          permission-members: read
-          permission-pull-requests: write
-          permission-statuses: write
-          permission-vulnerability-alerts: read
-          permission-workflows: write
 
       - name: Restore Renovate repository cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
