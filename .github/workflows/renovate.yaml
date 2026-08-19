@@ -1,6 +1,7 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Renovate
+run-name: Renovate (${{ (inputs.autodiscoverFilter == '*' && 'all repos') || inputs.autodiscoverFilter || 'all repos' }})
 
 on:
   schedule:
@@ -35,6 +36,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
 jobs:
   renovate:
     name: Renovate
@@ -52,9 +57,17 @@ jobs:
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: app-token
         with:
-          app-id: ${{ secrets.BOT_APP_ID }}
+          client-id: ${{ secrets.BOT_CLIENT_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+          permission-checks: write
+          permission-contents: write
+          permission-issues: write
+          permission-members: read
+          permission-pull-requests: write
+          permission-statuses: write
+          permission-vulnerability-alerts: read
+          permission-workflows: write
 
       - name: Restore Renovate repository cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -82,7 +95,7 @@ jobs:
           RENOVATE_PLATFORM_COMMIT: true
           RENOVATE_CUSTOM_ENV_VARIABLES: '{"MISE_TRUSTED_CONFIG_PATHS":"/tmp/renovate/repos"}'
           RENOVATE_ALLOWED_UNSAFE_EXECUTIONS: '["goGenerate", "mise"]'
-          RENOVATE_ALLOWED_COMMANDS: '["^helm-docs ", "^helm-schema "]'
+          RENOVATE_ALLOWED_COMMANDS: '["^helm-docs ", "^helm-schema ", "^npm "]'
           RENOVATE_REPOSITORY_CACHE: ${{ inputs.repoCache || 'enabled' }}
           RENOVATE_PRESET_CACHE_PERSISTENCE: "true"
         with:
