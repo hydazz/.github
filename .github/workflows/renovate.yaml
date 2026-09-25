@@ -83,7 +83,7 @@ jobs:
           LOG_LEVEL: ${{ inputs.logLevel || 'debug' }}
           RENOVATE_DRY_RUN: ${{ inputs.dryRun == true }}
           RENOVATE_AUTODISCOVER: true
-          RENOVATE_AUTODISCOVER_FILTER: ${{ inputs.autodiscoverFilter && format('{0}/{1}', github.repository_owner, inputs.autodiscoverFilter) || '/^hydazz\/(\.github|containers|home-ops|home-ops-private|renovate-config)$/' }}
+          RENOVATE_AUTODISCOVER_FILTER: ${{ inputs.autodiscoverFilter && format('{0}/{1}', github.repository_owner, inputs.autodiscoverFilter) || '/^hydazz\/(\.github|containers|home-ops|renovate-config)$/' }}
           RENOVATE_INTERNAL_CHECKS_FILTER: strict
           RENOVATE_PLATFORM: github
           RENOVATE_PLATFORM_COMMIT: true
