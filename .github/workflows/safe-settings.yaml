@@ -1,0 +1,96 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Safe Settings
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/safe-settings/**
+      - .github/workflows/safe-settings.yaml
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: Dry Run
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # renovate: datasource=github-releases depName=github/safe-settings
+  SAFE_SETTINGS_VERSION: 3.0.0
+  SAFE_SETTINGS_DIR: ${{ github.workspace }}/.safe-settings
+
+jobs:
+  full-sync:
+    name: Reconcile repository settings
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Checkout safe-settings
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: github/safe-settings
+          ref: ${{ env.SAFE_SETTINGS_VERSION }}
+          path: ${{ env.SAFE_SETTINGS_DIR }}
+          persist-credentials: false
+
+      - name: Setup Mise
+        uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
+        with:
+          experimental: true
+          install_args: --locked
+
+      - name: Install safe-settings
+        working-directory: ${{ env.SAFE_SETTINGS_DIR }}
+        run: npm ci
+
+      - name: Generate Token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.BOT_CLIENT_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-metadata: read
+
+      # Private repos, forks and home-ops (which follows onedr0p/home-ops) are managed separately.
+      - name: Generate deployment-settings.yml
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          {
+            echo '---'
+            echo 'restrictedRepos:'
+            echo '  exclude:'
+            gh repo list "$OWNER" --limit 200 --json name,isFork,visibility \
+              --jq '.[] | select(.isFork or .visibility != "PUBLIC" or .name == "home-ops") | "    - " + .name'
+          } > deployment-settings.yml
+          cat deployment-settings.yml
+
+      - name: Run safe-settings full-sync
+        working-directory: ${{ env.SAFE_SETTINGS_DIR }}
+        env:
+          GH_ORG: ${{ github.repository_owner }}
+          APP_ID: ${{ secrets.BOT_APP_ID }}
+          PRIVATE_KEY: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+          ADMIN_REPO: .github
+          CONFIG_PATH: .github/safe-settings
+          DEPLOYMENT_CONFIG_FILE: ${{ github.workspace }}/deployment-settings.yml
+          FULL_SYNC_NOP: ${{ inputs.dryRun || 'false' }}
+        run: npm run full-sync
